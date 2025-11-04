@@ -2,18 +2,20 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'ACTION', choices: ['deploy', 'destroy'], description: 'Choose action')
+        choice(name: 'ACTION', choices: ['deploy', 'destroy'], description: 'Choose whether to deploy or destroy infrastructure')
     }
 
     environment {
         TF_DIR = 'terraform'
         ANSIBLE_DIR = 'ansible'
+        AWS_REGION = 'us-east-1'   // or your region (e.g., ap-south-1)
     }
 
     stages {
-        stage('Checkout') {
+
+        stage('Checkout Repository') {
             steps {
-                git branch: 'main', url: 'https://github.com/Liteesh/nginx-devops-project.git'
+                git branch: 'main', url: 'https://github.com/Liteesh/nginx-project1.git'
             }
         }
 
@@ -25,13 +27,15 @@ pipeline {
             }
         }
 
-        stage('Terraform Apply or Destroy') {
+        stage('Terraform Apply/Destroy') {
             steps {
                 dir("${TF_DIR}") {
                     script {
                         if (params.ACTION == 'deploy') {
+                            echo "🚀 Deploying infrastructure..."
                             sh 'terraform apply -auto-approve'
                         } else {
+                            echo "🧹 Destroying infrastructure..."
                             sh 'terraform destroy -auto-approve'
                         }
                     }
@@ -39,7 +43,7 @@ pipeline {
             }
         }
 
-        stage('Get Public IP') {
+        stage('Get EC2 Public IP') {
             when {
                 expression { params.ACTION == 'deploy' }
             }
@@ -47,23 +51,27 @@ pipeline {
                 dir("${TF_DIR}") {
                     script {
                         env.INSTANCE_IP = sh(script: "terraform output -raw public_ip", returnStdout: true).trim()
-                        echo "Instance Public IP: ${env.INSTANCE_IP}"
+                        echo "✅ EC2 Public IP: ${env.INSTANCE_IP}"
+                        echo "🌍 Access your app: http://${env.INSTANCE_IP}"
                     }
                 }
             }
         }
 
-        stage('Configure Nginx with Ansible') {
+        stage('Configure Nginx using Ansible') {
             when {
                 expression { params.ACTION == 'deploy' }
             }
             steps {
                 dir("${ANSIBLE_DIR}") {
-                    sh '''
-                    echo "[nginx]" > inventory.ini
-                    echo "${INSTANCE_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/id_rsa" >> inventory.ini
-                    ansible-playbook -i inventory.ini playbook.yml
-                    '''
+                    script {
+                        // Create dynamic inventory file
+                        sh """
+                        echo "[nginx]" > inventory.ini
+                        echo "${INSTANCE_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/id_rsa" >> inventory.ini
+                        ansible-playbook -i inventory.ini playbook.yml
+                        """
+                    }
                 }
             }
         }
@@ -73,9 +81,19 @@ pipeline {
                 expression { params.ACTION == 'deploy' }
             }
             steps {
-                sh 'curl -I http://${INSTANCE_IP}'
+                script {
+                    echo "🌐 Checking application health..."
+                    sh "sleep 15"  // wait a bit for Nginx to start
+                    sh "curl -I http://${INSTANCE_IP} || echo '⚠️ Health check failed, verify Nginx manually.'"
+                }
             }
         }
     }
+
+    post {
+        always {
+            echo "✅ Pipeline completed. Action: ${params.ACTION}"
+        }
+    }
 }
-###this is my code 
+
