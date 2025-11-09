@@ -21,19 +21,21 @@ pipeline {
 
         stage('Terraform Init & Apply/Destroy') {
             steps {
-                // 🔒 Inject AWS credentials securely from Jenkins Credentials (ID = aws-creds)
-                withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                // ✅ Inject AWS credentials securely from Jenkins Credentials (ID = aws-creds)
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds'
+                ]]) {
                     dir("${TF_DIR}") {
                         script {
                             echo "📦 Initializing Terraform and validating AWS credentials..."
                             sh '''
-                            # ✅ Export AWS credentials explicitly (important for Terraform)
+                            # ✅ Export AWS credentials explicitly
                             export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
                             export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
                             export AWS_DEFAULT_REGION=${AWS_REGION}
                             export TF_IN_AUTOMATION=true
 
-                            # ✅ Verify AWS credentials before Terraform runs
                             echo "🔍 Verifying AWS credentials..."
                             aws sts get-caller-identity || { echo "❌ AWS credentials invalid or not loaded"; exit 1; }
 
