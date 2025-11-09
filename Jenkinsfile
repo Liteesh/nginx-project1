@@ -8,7 +8,7 @@ pipeline {
     environment {
         TF_DIR = 'terraform'
         ANSIBLE_DIR = 'ansible'
-        AWS_REGION = 'us-east-1'   // or your region (e.g., ap-south-1)
+        AWS_REGION = 'us-east-1'   // change if needed
     }
 
     stages {
@@ -22,7 +22,11 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir("${TF_DIR}") {
-                    sh 'terraform init'
+                    sh '''
+                    echo "📦 Initializing Terraform..."
+                    export TF_IN_AUTOMATION=true
+                    terraform init -input=false
+                    '''
                 }
             }
         }
@@ -33,10 +37,17 @@ pipeline {
                     script {
                         if (params.ACTION == 'deploy') {
                             echo "🚀 Deploying infrastructure..."
-                            sh 'terraform apply -auto-approve'
+                            // ✅ Fix: Run Terraform via sh -c with logging to avoid Jenkins durable task bug
+                            sh '''
+                            export TF_IN_AUTOMATION=true
+                            terraform apply -auto-approve -input=false || exit 1
+                            '''
                         } else {
                             echo "🧹 Destroying infrastructure..."
-                            sh 'terraform destroy -auto-approve'
+                            sh '''
+                            export TF_IN_AUTOMATION=true
+                            terraform destroy -auto-approve -input=false || exit 1
+                            '''
                         }
                     }
                 }
@@ -65,10 +76,11 @@ pipeline {
             steps {
                 dir("${ANSIBLE_DIR}") {
                     script {
-                        // Create dynamic inventory file
+                        // ✅ Create dynamic inventory file
                         sh """
                         echo "[nginx]" > inventory.ini
-                        echo "${INSTANCE_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/id_rsa" >> inventory.ini
+                        echo "${INSTANCE_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/jenkins.pem" >> inventory.ini
+                        echo "🧩 Running Ansible playbook..."
                         ansible-playbook -i inventory.ini playbook.yml
                         """
                     }
@@ -83,8 +95,10 @@ pipeline {
             steps {
                 script {
                     echo "🌐 Checking application health..."
-                    sh "sleep 15"  // wait a bit for Nginx to start
-                    sh "curl -I http://${INSTANCE_IP} || echo '⚠️ Health check failed, verify Nginx manually.'"
+                    sh """
+                    sleep 15
+                    curl -I http://${INSTANCE_IP} || echo '⚠️ Health check failed, verify Nginx manually.'
+                    """
                 }
             }
         }
