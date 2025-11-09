@@ -21,28 +21,33 @@ pipeline {
 
         stage('Terraform Init & Apply/Destroy') {
             steps {
-                // 🔒 Inject AWS credentials securely
+                // 🔒 Inject AWS credentials securely from Jenkins Credentials (ID = aws-creds)
                 withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     dir("${TF_DIR}") {
                         script {
-                            echo "📦 Initializing Terraform..."
+                            echo "📦 Initializing Terraform and validating AWS credentials..."
                             sh '''
+                            # ✅ Export AWS credentials explicitly (important for Terraform)
+                            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
                             export AWS_DEFAULT_REGION=${AWS_REGION}
                             export TF_IN_AUTOMATION=true
-                            terraform init -input=false
-                            '''
 
-                            if (params.ACTION == 'deploy') {
+                            # ✅ Verify AWS credentials before Terraform runs
+                            echo "🔍 Verifying AWS credentials..."
+                            aws sts get-caller-identity || { echo "❌ AWS credentials invalid or not loaded"; exit 1; }
+
+                            echo "🚀 Running Terraform..."
+                            terraform init -input=false
+
+                            if [ "${ACTION}" = "deploy" ]; then
                                 echo "🚀 Deploying infrastructure..."
-                                sh '''
-                                terraform apply -auto-approve -input=false || exit 1
-                                '''
-                            } else {
+                                terraform apply -auto-approve -input=false
+                            else
                                 echo "🧹 Destroying infrastructure..."
-                                sh '''
-                                terraform destroy -auto-approve -input=false || exit 1
-                                '''
-                            }
+                                terraform destroy -auto-approve -input=false
+                            fi
+                            '''
                         }
                     }
                 }
