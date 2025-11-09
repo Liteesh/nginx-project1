@@ -19,35 +19,30 @@ pipeline {
             }
         }
 
-        stage('Terraform Init') {
+        stage('Terraform Init & Apply/Destroy') {
             steps {
-                dir("${TF_DIR}") {
-                    sh '''
-                    echo "📦 Initializing Terraform..."
-                    export TF_IN_AUTOMATION=true
-                    terraform init -input=false
-                    '''
-                }
-            }
-        }
+                // 🔒 Inject AWS credentials securely
+                withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    dir("${TF_DIR}") {
+                        script {
+                            echo "📦 Initializing Terraform..."
+                            sh '''
+                            export AWS_DEFAULT_REGION=${AWS_REGION}
+                            export TF_IN_AUTOMATION=true
+                            terraform init -input=false
+                            '''
 
-        stage('Terraform Apply/Destroy') {
-            steps {
-                dir("${TF_DIR}") {
-                    script {
-                        if (params.ACTION == 'deploy') {
-                            echo "🚀 Deploying infrastructure..."
-                            // ✅ Fix: Run Terraform via sh -c with logging to avoid Jenkins durable task bug
-                            sh '''
-                            export TF_IN_AUTOMATION=true
-                            terraform apply -auto-approve -input=false || exit 1
-                            '''
-                        } else {
-                            echo "🧹 Destroying infrastructure..."
-                            sh '''
-                            export TF_IN_AUTOMATION=true
-                            terraform destroy -auto-approve -input=false || exit 1
-                            '''
+                            if (params.ACTION == 'deploy') {
+                                echo "🚀 Deploying infrastructure..."
+                                sh '''
+                                terraform apply -auto-approve -input=false || exit 1
+                                '''
+                            } else {
+                                echo "🧹 Destroying infrastructure..."
+                                sh '''
+                                terraform destroy -auto-approve -input=false || exit 1
+                                '''
+                            }
                         }
                     }
                 }
@@ -76,11 +71,10 @@ pipeline {
             steps {
                 dir("${ANSIBLE_DIR}") {
                     script {
-                        // ✅ Create dynamic inventory file
+                        echo "🧩 Creating dynamic inventory and running Ansible..."
                         sh """
                         echo "[nginx]" > inventory.ini
                         echo "${INSTANCE_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/jenkins.pem" >> inventory.ini
-                        echo "🧩 Running Ansible playbook..."
                         ansible-playbook -i inventory.ini playbook.yml
                         """
                     }
@@ -110,4 +104,3 @@ pipeline {
         }
     }
 }
-
