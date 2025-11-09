@@ -63,7 +63,7 @@ resource "aws_route_table_association" "public_assoc" {
 
 # 5️⃣ Create Key Pair
 resource "aws_key_pair" "devops_key" {
-  key_name   = "devops-key"
+  key_name   = "gitlabs.pem"
   public_key = file("~/.ssh/id_rsa.pub")
 }
 
