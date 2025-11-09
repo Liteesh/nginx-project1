@@ -2,7 +2,11 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'ACTION', choices: ['deploy', 'destroy'], description: 'Choose whether to deploy or destroy infrastructure')
+        choice(
+            name: 'ACTION',
+            choices: ['deploy', 'destroy'],
+            description: 'Choose whether to deploy or destroy infrastructure'
+        )
     }
 
     environment {
@@ -21,11 +25,10 @@ pipeline {
 
         stage('Terraform Init & Apply/Destroy') {
             steps {
-                // ✅ Inject AWS credentials securely from Jenkins Credentials (ID = aws-creds)
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds'
-                ]]) {
+                // ✅ Use Jenkins "Username & Password" credentials (ID = aws-creds)
+                withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     dir("${TF_DIR}") {
                         script {
                             echo "📦 Initializing Terraform and validating AWS credentials..."
@@ -42,7 +45,7 @@ pipeline {
                             echo "🚀 Running Terraform..."
                             terraform init -input=false
 
-                            if [ "${ACTION}" = "deploy" ]; then
+                            if [ "${params.ACTION}" = "deploy" ]; then
                                 echo "🚀 Deploying infrastructure..."
                                 terraform apply -auto-approve -input=false
                             else
