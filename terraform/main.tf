@@ -62,10 +62,10 @@ resource "aws_route_table_association" "public_assoc" {
 }
 
 # 5️⃣ Create Key Pair
-resource "aws_key_pair" "devops_key" {
-  key_name   = "gitlabs.pem"
-  public_key = file("~/.ssh/id_rsa.pub")
-}
+#
+ #
+  #
+#
 
 # 6️⃣ Create Security Group
 resource "aws_security_group" "nginx_sg" {
@@ -105,10 +105,10 @@ resource "aws_security_group" "nginx_sg" {
 # 7️⃣ Create EC2 Instance
 resource "aws_instance" "nginx_instance" {
   ami                         = "ami-0c02fb55956c7d316" # Amazon Linux 2
-  instance_type               = "t2.micro"
+  instance_type               = "t3.medium"
   subnet_id                   = aws_subnet.public_subnet.id
   vpc_security_group_ids      = [aws_security_group.nginx_sg.id]
-  key_name                    = aws_key_pair.devops_key.key_name
+  key_name                    = "gitlabs"
   associate_public_ip_address = true
 
   user_data = <<-EOF
