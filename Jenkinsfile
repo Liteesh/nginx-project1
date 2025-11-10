@@ -65,12 +65,18 @@ pipeline {
             steps {
                 dir("${ANSIBLE_DIR}") {
                     script {
-                        echo "🧩 Creating dynamic inventory and running Ansible..."
+                        echo "🧩 Running Ansible configuration..."
                         sh """
                         echo "[nginx]" > inventory.ini
                         echo "${INSTANCE_IP} ansible_user=ec2-user ansible_ssh_private_key_file=/var/lib/jenkins/.ssh/jenkins.pem" >> inventory.ini
-                        echo "⏳ Waiting for instance to be reachable..."
+
+                        echo "⏳ Waiting for EC2 to be ready..."
                         sleep 30
+
+                        # Disable host key checking for automation
+                        export ANSIBLE_HOST_KEY_CHECKING=False
+
+                        echo "🚀 Executing Ansible playbook..."
                         ansible-playbook -i inventory.ini playbook.yml
                         """
                     }
