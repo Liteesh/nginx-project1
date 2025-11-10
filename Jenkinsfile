@@ -1,6 +1,20 @@
 pipeline {
     agent any
 
+     stages {
+    stage('Deploy Infrastructure') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          sh '''
+            echo "Running Terraform with AWS credentials"
+            terraform init
+            terraform apply -auto-approve
+          '''
+        }
+      }
+    }
+  }
+
     parameters {
         choice(
             name: 'ACTION',
