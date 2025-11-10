@@ -1,20 +1,6 @@
 pipeline {
     agent any
 
-     stages {
-    stage('Deploy Infrastructure') {
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-          sh '''
-            echo "Running Terraform with AWS credentials"
-            terraform init
-            terraform apply -auto-approve
-          '''
-        }
-      }
-    }
-  }
-
     parameters {
         choice(
             name: 'ACTION',
@@ -39,7 +25,6 @@ pipeline {
 
         stage('Terraform Init & Apply/Destroy') {
             steps {
-                // ✅ Use Jenkins "Username & Password" credentials (ID = aws-creds)
                 withCredentials([usernamePassword(credentialsId: 'aws-creds',
                                                  usernameVariable: 'AWS_ACCESS_KEY_ID',
                                                  passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -47,7 +32,6 @@ pipeline {
                         script {
                             echo "📦 Initializing Terraform and validating AWS credentials..."
                             sh '''
-                            # ✅ Export AWS credentials explicitly
                             export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
                             export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
                             export AWS_DEFAULT_REGION=${AWS_REGION}
@@ -59,7 +43,7 @@ pipeline {
                             echo "🚀 Running Terraform..."
                             terraform init -input=false
 
-                            if [ "${params.ACTION}" = "deploy" ]; then
+                            if [ "${ACTION}" = "deploy" ]; then
                                 echo "🚀 Deploying infrastructure..."
                                 terraform apply -auto-approve -input=false
                             else
