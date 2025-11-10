@@ -23,39 +23,25 @@ pipeline {
             }
         }
 
-        stage('Terraform Init & Apply/Destroy') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'aws-creds',
-                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
-                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    dir("${TF_DIR}") {
-                        script {
-                            echo "📦 Initializing Terraform and validating AWS credentials..."
-                            sh '''
-                            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-                            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-                            export AWS_DEFAULT_REGION=${AWS_REGION}
-                            export TF_IN_AUTOMATION=true
+    stage('Terraform Init & Apply/Destroy') {
+        steps {
+            dir("${TF_DIR}") {
+                script {
+                    echo "🚀 Running Terraform using EC2 IAM Role..."
+                    sh '''
+                    export AWS_DEFAULT_REGION=${AWS_REGION}
+                    terraform init -input=false
 
-                            echo "🔍 Verifying AWS credentials..."
-                            aws sts get-caller-identity || { echo "❌ AWS credentials invalid or not loaded"; exit 1; }
-
-                            echo "🚀 Running Terraform..."
-                            terraform init -input=false
-
-                            if [ "${ACTION}" = "deploy" ]; then
-                                echo "🚀 Deploying infrastructure..."
-                                terraform apply -auto-approve -input=false
-                            else
-                                echo "🧹 Destroying infrastructure..."
-                                terraform destroy -auto-approve -input=false
-                            fi
-                            '''
-                        }
-                    }
+                    if [ "${ACTION}" = "deploy" ]; then
+                        terraform apply -auto-approve -input=false
+                    else
+                        terraform destroy -auto-approve -input=false
+                    fi
+                    '''
                 }
             }
         }
+    }
 
         stage('Get EC2 Public IP') {
             when {
