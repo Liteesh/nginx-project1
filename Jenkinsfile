@@ -84,7 +84,9 @@ pipeline {
                         echo "🧩 Creating dynamic inventory and running Ansible..."
                         sh """
                         echo "[nginx]" > inventory.ini
-                        echo "${INSTANCE_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/jenkins.pem" >> inventory.ini
+                        echo "${INSTANCE_IP} ansible_user=ec2-user ansible_ssh_private_key_file=/var/lib/jenkins/.ssh/jenkins.pem" >> inventory.ini
+                        echo "⏳ Waiting for instance to be reachable..."
+                        sleep 30
                         ansible-playbook -i inventory.ini playbook.yml
                         """
                     }
