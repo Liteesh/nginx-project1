@@ -7,6 +7,17 @@
       debug:
         msg: "Detected OS: {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
 
+    - name: Wait for yum lock to be released
+      shell: |
+        while sudo fuser /var/run/yum.pid >/dev/null 2>&1; do
+          echo "Waiting for yum lock..."
+          sleep 5
+        done
+      retries: 5
+      delay: 10
+      register: wait_result
+      until: wait_result.rc == 0
+
     - name: Enable Nginx extras on Amazon Linux 2
       command: amazon-linux-extras enable nginx1
       when:
